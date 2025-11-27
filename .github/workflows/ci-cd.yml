@@ -1,0 +1,24 @@
+name: CI/CD Python Pipeline
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build Docker
+      run: docker build -t minha-app:${{ github.sha }} .
+    - name: Test app
+      run: docker run --rm minha-app:${{ github.sha }} python test_app.py
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.4
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          docker pull minha-app:${{ github.sha }}
+          docker stop minha-app || true
+          docker rm minha-app || true
+          docker run -d -p 80:3000 --name minha-app minha-app:${{ github.sha }}
